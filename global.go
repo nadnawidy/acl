@@ -3,6 +3,7 @@ package acl
 import (
 	"errors"
 	"github.com/eaciit/dbox"
+	_ "github.com/eaciit/dbox/dbc/mongo"
 	"github.com/eaciit/orm/v1"
 	"github.com/eaciit/toolkit"
 )
@@ -25,15 +26,15 @@ func ctx() *orm.DataContext {
 	return _aclctx
 }
 
-func SetDb(conn dbox.IConnection) {
+func SetDb(conn dbox.IConnection) error {
 	e := conn.Connect()
 	if e != nil {
 		_aclctxErr = errors.New("Acl.SetDB: Test Connect: " + e.Error())
-		return
+		return _aclctxErr
 	}
 
 	_aclconn = conn
-	return
+	return _aclctxErr
 }
 
 func Save(o orm.IModel) error {
