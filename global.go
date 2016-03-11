@@ -12,6 +12,14 @@ var _aclconn dbox.IConnection
 var _aclctx *orm.DataContext
 var _aclctxErr error
 
+type IDTypeEnum int
+
+const (
+	IDTypeUser IDTypeEnum = iota
+	IDTypeGroup
+	IDTypeSession
+)
+
 func ctx() *orm.DataContext {
 	if _aclctx == nil {
 		if _aclconn == nil {
@@ -61,13 +69,46 @@ func Delete(o orm.IModel) error {
 	return e
 }
 
-func HasAccess(ID, IDType, AccessID string, AccessEnum int) {
+func HasAccess(ID interface{}, IDType IDTypeEnum, AccessID string, AccessFind AccessTypeEnum) (found bool) {
+	found = false
 
+	tGrants := make([]AccessGrant, 0, 0)
+	switch IDType {
+	case IDTypeUser:
+		tUser := new(User)
+		err := FindUserByLoginID(tUser, ID)
+		if err != nil {
+			return
+		}
+		tGrants = tUser.Grants
+	case IDTypeGroup:
+		tGroup := new(Group)
+		err := FindByID(tGroup, ID)
+		if err != nil {
+			return
+		}
+		tGrants = tGroup.Grants
+	case IDTypeSession:
+		// tSession := new(tSession)
+		// err := FindByID(tSession, ID)
+		// tGrants = tSession.Grants
+	}
+
+	if len(tGrants) == 0 {
+		return
+	}
+
+	fn, in := getgrantindex(tGrants, AccessID)
+	if fn {
+		found = matchaccess(int(AccessFind), tGrants[in].AccessValue)
+	}
+
+	return
 }
 
 func FindUserByLoginID(o orm.IModel, id interface{}) error {
 	var filters []*dbox.Filter
-	filter := dbox.Eq("ID", id)
+	filter := dbox.Eq("loginid", id)
 	if filter != nil {
 		filters = append(filters, filter)
 	}
@@ -85,7 +126,7 @@ func FindUserByLoginID(o orm.IModel, id interface{}) error {
 
 func FindUserByEmail(o orm.IModel, email string) error {
 	var filters []*dbox.Filter
-	filter := dbox.Eq("Email", email)
+	filter := dbox.Eq("email", email)
 	if filter != nil {
 		filters = append(filters, filter)
 	}

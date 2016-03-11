@@ -8,14 +8,14 @@ type Access struct {
 	orm.ModelBase
 	ID             string
 	Title          string
-	Group1         int
-	Group2         int
-	Group3         int
+	Group1         string
+	Group2         string
+	Group3         string
 	Enable         bool
-	SpecialAccess1 int
-	SpecialAccess2 int
-	SpecialAccess3 int
-	SpecialAccess4 int
+	SpecialAccess1 string
+	SpecialAccess2 string
+	SpecialAccess3 string
+	SpecialAccess4 string
 }
 
 func (a *Access) TableName() string {

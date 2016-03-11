@@ -2,9 +2,9 @@ package acl
 
 import (
 	// "github.com/eaciit/dbox"
-	"github.com/eaciit/orm/v1"
-	// "github.com/eaciit/toolkit"
 	"errors"
+	"github.com/eaciit/orm/v1"
+	"github.com/eaciit/toolkit"
 )
 
 type User struct {
@@ -85,7 +85,10 @@ func (u *User) AddToGroup(tGroupID string) error {
 		return errors.New("Acl.UserAddToGroup: " + e.Error())
 	}
 
-	u.Groups = append(u.Groups, mod.ID)
+	if !toolkit.HasMember(u.Groups, mod.ID) {
+		u.Groups = append(u.Groups, mod.ID)
+	}
+
 	for _, tg := range mod.Grants {
 		arrgrantval := splitinttogrant(tg.AccessValue)
 		u.Grant(tg.AccessID, arrgrantval...)
@@ -101,7 +104,10 @@ func (u *User) RemoveFromGroup(tGroupID string) error {
 		return errors.New("Acl.UserAddToGroup: " + e.Error())
 	}
 
-	u.Groups = append(u.Groups, mod.ID)
+	if f, i := toolkit.MemberIndex(u.Groups, mod.ID); f {
+		u.Groups = append(u.Groups[:i], u.Groups[i+1:]...)
+	}
+
 	for _, tg := range mod.Grants {
 		arrgrantval := splitinttogrant(tg.AccessValue)
 		u.Revoke(tg.AccessID, arrgrantval...)
