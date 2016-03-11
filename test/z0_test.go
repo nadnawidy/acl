@@ -156,7 +156,7 @@ func TestAddAccesUser(t *testing.T) {
 }
 
 func TestFindInAcl(t *testing.T) {
-	// t.Skip("Skip : Comment this line to do test")
+	t.Skip("Skip : Comment this line to do test")
 	tAccess := new(acl.Access)
 	tGroup := new(acl.Group)
 	tUser := new(acl.User)
@@ -190,4 +190,41 @@ func TestFindInAcl(t *testing.T) {
 
 	foundcond = acl.HasAccess("ACL.GROUP.3", acl.IDTypeGroup, "ACLTEST.ACCESS.2", acl.AccessCreate+acl.AccessRead)
 	fmt.Printf("Found has access 02 : %v \n\n", foundcond)
+}
+
+func TestDeleteInAcl(t *testing.T) {
+	t.Skip("Skip : Comment this line to do test")
+	tAccess := new(acl.Access)
+	tGroup := new(acl.Group)
+	tUser := new(acl.User)
+
+	err := acl.FindByID(tAccess, "ACLTEST.ACCESS.9")
+	if err != nil {
+		t.Errorf("Error Find Access By ID : %s \n", err.Error())
+	} else {
+		err = acl.Delete(tAccess)
+		if err != nil {
+			t.Errorf("Error delete access : %s \n", err.Error())
+		}
+	}
+
+	err = acl.FindByID(tGroup, "ACL.GROUP.3")
+	if err != nil {
+		t.Errorf("Error Find Group By ID : %s \n", err.Error())
+	} else {
+		err = acl.Delete(tGroup)
+		if err != nil {
+			t.Errorf("Error delete group : %s \n", err.Error())
+		}
+	}
+
+	err = acl.FindUserByLoginID(tUser, "ACL.LOGINID.2")
+	if err != nil {
+		t.Errorf("Error find user by loginid : %s \n", err.Error())
+	} else {
+		err = acl.Delete(tUser)
+		if err != nil {
+			t.Errorf("Error delete user : %s \n", err.Error())
+		}
+	}
 }
