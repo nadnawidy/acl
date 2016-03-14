@@ -123,9 +123,19 @@ func HasAccess(ID interface{}, IDType IDTypeEnum, AccessID string, AccessFind Ac
 		}
 		tGrants = tGroup.Grants
 	case IDTypeSession:
-		// tSession := new(tSession)
-		// err := FindByID(tSession, ID)
-		// tGrants = tSession.Grants
+		tSession := new(Session)
+		err := FindByID(tSession, ID)
+		if tSession.Expired.Before(time.Now().UTC()) {
+			return
+		}
+
+		tUser := new(User)
+		err = FindByID(tUser, tSession.UserID)
+		if err != nil {
+			return
+		}
+
+		tGrants = tUser.Grants
 	}
 
 	if len(tGrants) == 0 {
@@ -183,7 +193,7 @@ func Login(username, password string) (sessionid string, err error) {
 
 	tSession := new(Session)
 	tSession.ID = toolkit.RandomString(32)
-	tSession.UserID = username
+	tSession.UserID = tUser.ID
 	tSession.Created = time.Now().UTC()
 	tSession.Expired = time.Now().UTC().Add(_expiredduration)
 
@@ -207,6 +217,11 @@ func Logout(sessionid string) (err error) {
 		return
 	}
 
+	if time.Now().UTC().After(tSession.Expired) {
+		err = errors.New("Session id is expired")
+		return
+	}
+
 	tSession.Expired = time.Now().UTC()
 	err = Save(tSession)
 	if err != nil {
@@ -216,12 +231,12 @@ func Logout(sessionid string) (err error) {
 	return
 }
 
-func CreateToken(UserID, TokenPupose string, Validity time.Time) (err error) {
+func CreateToken(UserID, TokenPupose string, Validity time.Duration) (err error) {
 	tToken := new(Token)
 	tToken.ID = toolkit.RandomString(32)
 	tToken.UserID = UserID
 	tToken.Created = time.Now().UTC()
-	tToken.Expired = Validity
+	tToken.Expired = time.Now().UTC().Add(Validity)
 	tToken.Purpose = TokenPupose
 
 	err = Save(tToken)
@@ -250,24 +265,46 @@ func GetToken(UserID, TokenPurpose string) (tokenid string, err error) {
 	if err == nil {
 		if time.Now().UTC().After(tToken.Expired) {
 			err = errors.New("Token has been expired")
+			tToken = new(Token)
 			return
 		}
+
+		if !tToken.Claimed.IsZero() {
+			err = errors.New("Token has been claimed")
+			tToken = new(Token)
+			return
+		}
+
 		tokenid = tToken.ID
 	}
 
 	return
 }
 
-func FindUserBySessionID(sessionid string) (userid string, err error) {
+func FindUserBySessionID(sessionid string) (tUser orm.IModel, err error) {
 	tSession := new(Session)
 	err = FindByID(tSession, sessionid)
 	if err != nil {
 		return
 	}
 
+	if tSession.Expired.Before(time.Now().UTC()) {
+		err = errors.New(fmt.Sprintf("Session has been expired"))
+		return
+	}
+
 	tSession.Expired = time.Now().UTC().Add(_expiredduration)
 	err = Save(tSession)
-	userid = tSession.UserID
+	if err != nil {
+		err = errors.New(fmt.Sprintf("Update session error found : ", err.Error()))
+	}
+
+	tUser = new(User)
+	err = FindByID(tUser, sessionid)
+	if err != nil {
+		err = errors.New(fmt.Sprintf("Find user by id found : ", err.Error()))
+	}
+	// userid = tSession.UserID
 
 	return
 }

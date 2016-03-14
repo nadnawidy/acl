@@ -9,6 +9,7 @@ import (
 	// "os"
 	// "path/filepath"
 	"testing"
+	"time"
 )
 
 // var err error
@@ -161,7 +162,7 @@ func TestAddAccesUser(t *testing.T) {
 }
 
 func TestFindGenAcl(t *testing.T) {
-	// t.Skip("Skip : Comment this line to do test")
+	t.Skip("Skip : Comment this line to do test")
 	tAccess := new(acl.Access)
 	tGroup := new(acl.Group)
 	tUser := new(acl.User)
@@ -275,5 +276,78 @@ func TestDeleteInAcl(t *testing.T) {
 		if err != nil {
 			t.Errorf("Error delete user : %s \n", err.Error())
 		}
+	}
+}
+
+func TestTokens(t *testing.T) {
+	t.Skip("Skip : Comment this line to do test")
+	tUser := new(acl.User)
+
+	err := acl.FindUserByLoginID(tUser, "ACL.LOGINID.1")
+	if err != nil {
+		t.Errorf("Error Find User By ID ACL: %s \n", err.Error())
+		return
+	}
+	fmt.Printf("FOUND ID : %v \n\n", tUser.ID)
+
+	err = acl.CreateToken(tUser.ID, "ChangePassword", time.Minute*5)
+	if err != nil {
+		t.Errorf("Create user token found : %s \n", err.Error())
+		return
+	}
+	fmt.Printf("Token created... \n")
+
+	idToken, err := acl.GetToken(tUser.ID, "ChangePassword")
+	if err != nil {
+		t.Errorf("Get token found : %s \n", err.Error())
+		return
+	}
+	fmt.Printf("Token : %v \n\n", idToken)
+
+	tToken := new(acl.Token)
+	err = acl.FindByID(tToken, idToken)
+	if err != nil {
+		t.Errorf("Error Find Group By ID : %s \n", err.Error())
+	}
+
+	<-time.After(time.Second * 10)
+	tToken.Claim()
+	fmt.Printf("Token claimed... \n")
+
+	idToken, err = acl.GetToken(tUser.ID, "ChangePassword")
+	if err != nil {
+		t.Errorf("Get token found : %s \n", err.Error())
+		return
+	}
+	fmt.Printf("Token : %v \n\n", idToken)
+}
+
+func TestSession(t *testing.T) {
+	// t.Skip("Skip : Comment this line to do test")
+	acl.SetExpiredDuration(time.Minute * 1)
+
+	// err := acl.FindUserByLoginID(tUser, "ACL.LOGINID.1")
+	// if err != nil {
+	// 	t.Errorf("Error Find User By ID ACL: %s \n", err.Error())
+	// 	return
+	// }
+	// fmt.Printf("FOUND ID : %v \n\n", tUser.ID)
+
+	sessionid, err := acl.Login("ACL.LOGINID.1", "12345")
+	if err != nil {
+		t.Errorf("Login error: %s \n", err.Error())
+	}
+
+	<-time.After(time.Second * 15)
+
+	tUser, err := acl.FindUserBySessionID(sessionid)
+	fmt.Println("User Found : ", tUser)
+
+	fmt.Printf("Session ID : %v ", sessionid)
+	<-time.After(time.Second * 90)
+
+	err = acl.Logout(sessionid)
+	if err != nil {
+		t.Errorf("Logout error: %s \n", err.Error())
 	}
 }

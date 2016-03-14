@@ -28,5 +28,6 @@ func (t *Token) RecordID() interface{} {
 }
 
 func (t *Token) Claim() {
-
+	t.Claimed = time.Now()
+	Save(t)
 }
