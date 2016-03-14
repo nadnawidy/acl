@@ -125,10 +125,10 @@ func TestAddAccesGroup(t *testing.T) {
 	tGroup.Revoke("ACLTEST.ACCESS.1", acl.AccessDelete)
 	fmt.Printf("Group after revoke : %v \n\n", toolkit.JsonString(tGroup))
 
-	// err = acl.Save(tGroup)
-	// if err != nil {
-	// 	t.Errorf("Error save Group to database: %s \n", err.Error())
-	// }
+	err = acl.Save(tGroup)
+	if err != nil {
+		t.Errorf("Error save Group to database: %s \n", err.Error())
+	}
 }
 
 func TestAddAccesUser(t *testing.T) {
@@ -153,6 +153,55 @@ func TestAddAccesUser(t *testing.T) {
 
 	tUser.RemoveFromGroup("ACL.GROUP.3")
 	fmt.Printf("User after remove group : %v \n\n", toolkit.JsonString(tUser))
+
+	err = acl.Save(tUser)
+	if err != nil {
+		t.Errorf("Error save user to database: %s \n", err.Error())
+	}
+}
+
+func TestFindGenAcl(t *testing.T) {
+	// t.Skip("Skip : Comment this line to do test")
+	tAccess := new(acl.Access)
+	tGroup := new(acl.Group)
+	tUser := new(acl.User)
+
+	arrm := make([]toolkit.M, 0, 0)
+	c, e := acl.Find(tAccess, nil, toolkit.M{}.Set("take", 3))
+	if e == nil {
+		e = c.Fetch(&arrm, 0, false)
+	}
+
+	if e != nil {
+		t.Errorf("Error Found : %v", e.Error())
+	} else {
+		fmt.Printf("Access : %v \n\n", arrm)
+	}
+
+	arrm = make([]toolkit.M, 0, 0)
+	c, e = acl.Find(tGroup, nil, toolkit.M{}.Set("take", 1))
+	if e == nil {
+		e = c.Fetch(&arrm, 0, false)
+	}
+
+	if e != nil {
+		t.Errorf("Error Found : %v", e.Error())
+	} else {
+		fmt.Printf("Access : %v \n\n", arrm)
+	}
+
+	arrm = make([]toolkit.M, 0, 0)
+	c, e = acl.Find(tUser, nil, toolkit.M{}.Set("take", 1))
+	if e == nil {
+		e = c.Fetch(&arrm, 0, false)
+	}
+
+	if e != nil {
+		t.Errorf("Error Found : %v", e.Error())
+	} else {
+		fmt.Printf("Access : %v \n\n", arrm)
+	}
+	c.Close()
 }
 
 func TestFindInAcl(t *testing.T) {

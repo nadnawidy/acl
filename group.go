@@ -6,11 +6,11 @@ import (
 
 type Group struct {
 	orm.ModelBase
-	ID     string
-	Title  string
-	Enable bool
-	Grants []AccessGrant
-	Owner  string
+	ID     string        `json:"_id",bson:"_id"`
+	Title  string        // `json:"Title",bson:"Title"`
+	Enable bool          // `json:"Enable",bson:"Enable"`
+	Grants []AccessGrant // `json:"Grants",bson:"Grants"`
+	Owner  string        // `json:"Owner",bson:"Owner"`
 }
 
 func (g *Group) TableName() string {

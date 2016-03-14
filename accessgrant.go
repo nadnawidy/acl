@@ -18,6 +18,6 @@ const (
 )
 
 type AccessGrant struct {
-	AccessID    string
-	AccessValue int
+	AccessID    string // `json:"AccessID",bson:"AccessID"`
+	AccessValue int    // `json:"AccessValue",bson:"AccessValue"`
 }

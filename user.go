@@ -9,14 +9,14 @@ import (
 
 type User struct {
 	orm.ModelBase
-	ID       string
-	LoginID  string
-	FullName string
-	Email    string
-	Password string
-	Enable   bool
-	Groups   []string
-	Grants   []AccessGrant
+	ID       string        `json:"_id",bson:"_id"`
+	LoginID  string        // `json:"LoginID",bson:"LoginID"`
+	FullName string        // `json:"FullName",bson:"FullName"`
+	Email    string        // `json:"Email",bson:"Email"`
+	Password string        // `json:"Password",bson:"Password"`
+	Enable   bool          // `json:"Enable",bson:"Enable"`
+	Groups   []string      // `json:"Groups",bson:"Groups"`
+	Grants   []AccessGrant // `json:"Grants",bson:"Grants"`
 }
 
 func (u *User) TableName() string {
