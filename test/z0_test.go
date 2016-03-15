@@ -280,7 +280,7 @@ func TestDeleteInAcl(t *testing.T) {
 }
 
 func TestTokens(t *testing.T) {
-	t.Skip("Skip : Comment this line to do test")
+	// t.Skip("Skip : Comment this line to do test")
 	tUser := new(acl.User)
 
 	err := acl.FindUserByLoginID(tUser, "ACL.LOGINID.1")
@@ -323,7 +323,7 @@ func TestTokens(t *testing.T) {
 }
 
 func TestSession(t *testing.T) {
-	// t.Skip("Skip : Comment this line to do test")
+	t.Skip("Skip : Comment this line to do test")
 	acl.SetExpiredDuration(time.Minute * 1)
 
 	// err := acl.FindUserByLoginID(tUser, "ACL.LOGINID.1")
