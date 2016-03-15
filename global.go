@@ -4,13 +4,13 @@ import (
 	"crypto/md5"
 	"errors"
 	"fmt"
-	"io"
-	"time"
-
 	"github.com/eaciit/dbox"
 	_ "github.com/eaciit/dbox/dbc/mongo"
 	"github.com/eaciit/orm/v1"
 	"github.com/eaciit/toolkit"
+	"io"
+	"strings"
+	"time"
 )
 
 var _aclconn dbox.IConnection
@@ -152,7 +152,7 @@ func HasAccess(ID interface{}, IDType IDTypeEnum, AccessID string, AccessFind Ac
 
 	fn, in := getgrantindex(tGrants, AccessID)
 	if fn {
-		found = matchaccess(int(AccessFind), tGrants[in].AccessValue)
+		found = Matchaccess(int(AccessFind), tGrants[in].AccessValue)
 	}
 
 	return
@@ -217,6 +217,16 @@ func Login(username, password string) (sessionid string, err error) {
 	tUser := new(User)
 	err = FindUserByLoginID(tUser, username)
 	if err != nil {
+		if strings.Contains(err.Error(), "Not found") {
+			err = errors.New("Username not found")
+			return
+		}
+		err = errors.New(fmt.Sprintf("Found error : %v", err.Error()))
+		return
+	}
+
+	if tUser.ID == "" {
+		err = errors.New("Username not found")
 		return
 	}
 
@@ -226,14 +236,23 @@ func Login(username, password string) (sessionid string, err error) {
 	ePassword := fmt.Sprintf("%x", tPass.Sum(nil))
 
 	if ePassword != tUser.Password {
-		err = errors.New("Username and password is not correct")
+		err = errors.New("Username and password is incorrect")
 		return
 	}
 
 	tSession := new(Session)
-	tSession.ID = toolkit.RandomString(32)
-	tSession.UserID = tUser.ID
-	tSession.Created = time.Now().UTC()
+	err = FindActiveSessionByUser(tSession, tUser.ID)
+	if err != nil {
+		err = errors.New(fmt.Sprintf("Get previous session, found : %v", err.Error()))
+		return
+	}
+
+	if tSession.ID == "" {
+		tSession.ID = toolkit.RandomString(32)
+		tSession.UserID = tUser.ID
+		tSession.Created = time.Now().UTC()
+	}
+
 	tSession.Expired = time.Now().UTC().Add(_expiredduration)
 
 	err = Save(tSession)
@@ -345,5 +364,21 @@ func FindUserBySessionID(sessionid string) (userid string, err error) {
 	}
 	userid = tUser.ID
 
+	return
+}
+
+func FindActiveSessionByUser(o orm.IModel, userid string) (err error) {
+	filter := dbox.And(dbox.Eq("userid", userid), dbox.Gte("expired", time.Now().UTC()))
+
+	c, err := Find(o, filter, nil)
+	if err != nil {
+		return errors.New("Acl.FindActiveSessionByUser: " + err.Error())
+	}
+	defer c.Close()
+
+	err = c.Fetch(o, 1, false)
+	if err != nil && strings.Contains(err.Error(), "Not found") {
+		err = nil
+	}
 	return
 }

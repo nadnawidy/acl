@@ -27,7 +27,7 @@ func (g *Group) Grant(tAccessID string, tAccessEnum ...AccessTypeEnum) {
 		for _, tAE := range tAccessEnum {
 			splittAE := splitgrantvalue(tAE)
 			for _, iSplittAE := range splittAE {
-				if !matchaccess(iSplittAE, g.Grants[i].AccessValue) {
+				if !Matchaccess(iSplittAE, g.Grants[i].AccessValue) {
 					g.Grants[i].AccessValue += iSplittAE
 				}
 			}
@@ -58,7 +58,7 @@ func (g *Group) Revoke(tAccessID string, tAccessEnum ...AccessTypeEnum) {
 		for _, tAE := range tAccessEnum {
 			splittAE := splitgrantvalue(tAE)
 			for _, iSplittAE := range splittAE {
-				if matchaccess(iSplittAE, g.Grants[i].AccessValue) {
+				if Matchaccess(iSplittAE, g.Grants[i].AccessValue) {
 					g.Grants[i].AccessValue -= iSplittAE
 				}
 			}

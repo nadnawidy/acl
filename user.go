@@ -33,7 +33,7 @@ func (u *User) Grant(tAccessID string, tAccessEnum ...AccessTypeEnum) {
 		for _, tAE := range tAccessEnum {
 			splittAE := splitgrantvalue(tAE)
 			for _, iSplittAE := range splittAE {
-				if !matchaccess(iSplittAE, u.Grants[i].AccessValue) {
+				if !Matchaccess(iSplittAE, u.Grants[i].AccessValue) {
 					u.Grants[i].AccessValue += iSplittAE
 				}
 			}
@@ -64,7 +64,7 @@ func (u *User) Revoke(tAccessID string, tAccessEnum ...AccessTypeEnum) {
 		for _, tAE := range tAccessEnum {
 			splittAE := splitgrantvalue(tAE)
 			for _, iSplittAE := range splittAE {
-				if matchaccess(iSplittAE, u.Grants[i].AccessValue) {
+				if Matchaccess(iSplittAE, u.Grants[i].AccessValue) {
 					u.Grants[i].AccessValue -= iSplittAE
 				}
 			}

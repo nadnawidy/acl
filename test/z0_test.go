@@ -341,14 +341,7 @@ func TestSession(t *testing.T) {
 	// t.Skip("Skip : Comment this line to do test")
 	acl.SetExpiredDuration(time.Second * 25)
 
-	// err := acl.FindUserByLoginID(tUser, "ACL.LOGINID.1")
-	// if err != nil {
-	// 	t.Errorf("Error Find User By ID ACL: %s \n", err.Error())
-	// 	return
-	// }
-	// fmt.Printf("FOUND ID : %v \n\n", tUser.ID)
-
-	sessionid, err := acl.Login("ACL.LOGINID.1", "12345")
+	sessionid, err := acl.Login("ACL.LOGINID", "12345")
 	if err != nil {
 		t.Errorf("Login error: %s \n", err.Error())
 		t.Skip()
