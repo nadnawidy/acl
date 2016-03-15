@@ -2,6 +2,7 @@ package acl
 
 import (
 	"fmt"
+
 	"github.com/eaciit/acl"
 	"github.com/eaciit/dbox"
 	_ "github.com/eaciit/dbox/dbc/mongo"
@@ -60,6 +61,20 @@ func TestCreateUser(t *testing.T) {
 		err := acl.Save(initUser)
 		if err != nil {
 			t.Errorf("Error set initial user to acl: %s \n", err.Error())
+		}
+	}
+
+	for i := 0; i < 3; i++ {
+		iUser := new(acl.User)
+		err := acl.FindUserByLoginID(iUser, fmt.Sprintf("ACL.LOGINID.%v", i))
+		if err != nil {
+			t.Errorf("Error find user by login id: %s \n", err.Error())
+			continue
+		}
+		err = acl.ChangePassword(iUser.ID, "12345")
+		if err != nil {
+			t.Errorf("Error change password : %s \n", err.Error())
+			continue
 		}
 	}
 }
@@ -280,7 +295,7 @@ func TestDeleteInAcl(t *testing.T) {
 }
 
 func TestTokens(t *testing.T) {
-	// t.Skip("Skip : Comment this line to do test")
+	t.Skip("Skip : Comment this line to do test")
 	tUser := new(acl.User)
 
 	err := acl.FindUserByLoginID(tUser, "ACL.LOGINID.1")
@@ -323,8 +338,8 @@ func TestTokens(t *testing.T) {
 }
 
 func TestSession(t *testing.T) {
-	t.Skip("Skip : Comment this line to do test")
-	acl.SetExpiredDuration(time.Minute * 1)
+	// t.Skip("Skip : Comment this line to do test")
+	acl.SetExpiredDuration(time.Second * 25)
 
 	// err := acl.FindUserByLoginID(tUser, "ACL.LOGINID.1")
 	// if err != nil {
@@ -336,18 +351,31 @@ func TestSession(t *testing.T) {
 	sessionid, err := acl.Login("ACL.LOGINID.1", "12345")
 	if err != nil {
 		t.Errorf("Login error: %s \n", err.Error())
+		t.Skip()
 	}
+	fmt.Printf("[%v]Session ID : %v \n", toolkit.Date2String(time.Now(), "HH:mm:ss"), sessionid)
 
-	<-time.After(time.Second * 15)
+	<-time.After(time.Second * 5)
 
 	tUser, err := acl.FindUserBySessionID(sessionid)
-	fmt.Println("User Found : ", tUser)
+	if err != nil {
+		t.Errorf("Find user error: %s \n", err.Error())
+		return
+	}
+	fmt.Printf("[%v]User Found : %v \n", toolkit.Date2String(time.Now(), "HH:mm:ss"), tUser)
 
-	fmt.Printf("Session ID : %v ", sessionid)
-	<-time.After(time.Second * 90)
+	<-time.After(time.Second * 30)
 
 	err = acl.Logout(sessionid)
-	if err != nil {
-		t.Errorf("Logout error: %s \n", err.Error())
+	if err == nil {
+		t.Errorf("Logout error: %s \n", "must be expired")
+	} else {
+		fmt.Printf("[%v]Session expired : %v \n\n", toolkit.Date2String(time.Now(), "HH:mm:ss"), err.Error())
 	}
+
+	tUser, err = acl.FindUserBySessionID(sessionid)
+	if err != nil {
+		fmt.Printf("[%v]Session Expired : %s \n", toolkit.Date2String(time.Now(), "HH:mm:ss"), err.Error())
+	}
+	fmt.Printf("[%v]User Found : %v \n", toolkit.Date2String(time.Now(), "HH:mm:ss"), tUser)
 }

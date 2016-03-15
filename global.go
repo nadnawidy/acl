@@ -1,13 +1,16 @@
 package acl
 
 import (
+	"crypto/md5"
 	"errors"
 	"fmt"
+	"io"
+	"time"
+
 	"github.com/eaciit/dbox"
 	_ "github.com/eaciit/dbox/dbc/mongo"
 	"github.com/eaciit/orm/v1"
 	"github.com/eaciit/toolkit"
-	"time"
 )
 
 var _aclconn dbox.IConnection
@@ -57,6 +60,11 @@ func SetExpiredDuration(td time.Duration) {
 }
 
 func Save(o orm.IModel) error {
+
+	if toolkit.TypeName(o) == "*acl.User" {
+		o.(*User).Password = getlastpassword(o.(*User).ID)
+	}
+
 	e := ctx().Save(o)
 	if e != nil {
 		return errors.New("Acl.Save: " + e.Error())
@@ -150,6 +158,32 @@ func HasAccess(ID interface{}, IDType IDTypeEnum, AccessID string, AccessFind Ac
 	return
 }
 
+func ChangePassword(userId string, passwd string) (err error) {
+
+	tUser := new(User)
+	err = FindByID(tUser, userId)
+	if err != nil {
+		err = errors.New(fmt.Sprintf("Found Error : ", err.Error()))
+		return
+	}
+
+	if tUser.ID == "" {
+		err = errors.New("User not found")
+	}
+
+	tPass := md5.New()
+	io.WriteString(tPass, passwd)
+
+	tUser.Password = fmt.Sprintf("%x", tPass.Sum(nil))
+
+	err = ctx().Save(tUser)
+	if err != nil {
+		err = errors.New("Acl.ChangePassword: " + err.Error())
+	}
+
+	return
+}
+
 func FindUserByLoginID(o orm.IModel, id interface{}) error {
 	filter := dbox.Eq("loginid", id)
 
@@ -186,7 +220,12 @@ func Login(username, password string) (sessionid string, err error) {
 		return
 	}
 
-	if password != tUser.Password {
+	tPass := md5.New()
+	io.WriteString(tPass, password)
+
+	ePassword := fmt.Sprintf("%x", tPass.Sum(nil))
+
+	if ePassword != tUser.Password {
 		err = errors.New("Username and password is not correct")
 		return
 	}
@@ -281,7 +320,7 @@ func GetToken(UserID, TokenPurpose string) (tokenid string, err error) {
 	return
 }
 
-func FindUserBySessionID(sessionid string) (tUser orm.IModel, err error) {
+func FindUserBySessionID(sessionid string) (userid string, err error) {
 	tSession := new(Session)
 	err = FindByID(tSession, sessionid)
 	if err != nil {
@@ -296,15 +335,15 @@ func FindUserBySessionID(sessionid string) (tUser orm.IModel, err error) {
 	tSession.Expired = time.Now().UTC().Add(_expiredduration)
 	err = Save(tSession)
 	if err != nil {
-		err = errors.New(fmt.Sprintf("Update session error found : ", err.Error()))
+		err = errors.New(fmt.Sprintf("Update session error found : %v", err.Error()))
 	}
 
-	tUser = new(User)
-	err = FindByID(tUser, sessionid)
+	tUser := new(User)
+	err = FindByID(tUser, tSession.UserID)
 	if err != nil {
-		err = errors.New(fmt.Sprintf("Find user by id found : ", err.Error()))
+		err = errors.New(fmt.Sprintf("Find user by id found : %v", err.Error()))
 	}
-	// userid = tSession.UserID
+	userid = tUser.ID
 
 	return
 }

@@ -46,3 +46,17 @@ func getgrantindex(ag []AccessGrant, AccessID string) (found bool, in int) {
 
 	return
 }
+
+func getlastpassword(UserId string) (passwd string) {
+	passwd = ""
+
+	tUser := new(User)
+	err := FindByID(tUser, UserId)
+	if err != nil {
+		return
+	}
+
+	passwd = tUser.Password
+
+	return
+}
