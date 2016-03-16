@@ -90,7 +90,7 @@ func (u *User) AddToGroup(tGroupID string) error {
 	}
 
 	for _, tg := range mod.Grants {
-		arrgrantval := splitinttogrant(tg.AccessValue)
+		arrgrantval := Splitinttogrant(tg.AccessValue)
 		u.Grant(tg.AccessID, arrgrantval...)
 	}
 
@@ -109,7 +109,7 @@ func (u *User) RemoveFromGroup(tGroupID string) error {
 	}
 
 	for _, tg := range mod.Grants {
-		arrgrantval := splitinttogrant(tg.AccessValue)
+		arrgrantval := Splitinttogrant(tg.AccessValue)
 		u.Revoke(tg.AccessID, arrgrantval...)
 	}
 

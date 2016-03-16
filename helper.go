@@ -20,7 +20,7 @@ func splitgrantvalue(in AccessTypeEnum) []int {
 	return ain
 }
 
-func splitinttogrant(in int) []AccessTypeEnum {
+func Splitinttogrant(in int) []AccessTypeEnum {
 	ain := make([]AccessTypeEnum, 0, 0)
 	for _, i := range listgrantvalue {
 		if Matchaccess(int(i), in) {
