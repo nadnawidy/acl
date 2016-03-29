@@ -8,6 +8,7 @@ import (
 	_ "github.com/eaciit/dbox/dbc/mongo"
 	"github.com/eaciit/orm/v1"
 	"github.com/eaciit/toolkit"
+	"github.com/rbns/ldap"
 	"io"
 	"strings"
 	"time"
@@ -45,6 +46,8 @@ func ctx() *orm.DataContext {
 }
 
 func SetDb(conn dbox.IConnection) error {
+	_aclctxErr = nil
+
 	e := conn.Connect()
 	if e != nil {
 		_aclctxErr = errors.New("Acl.SetDB: Test Connect: " + e.Error())
@@ -111,6 +114,7 @@ func Delete(o orm.IModel) error {
 	return e
 }
 
+// ID for IDTypeUser
 func HasAccess(ID interface{}, IDType IDTypeEnum, AccessID string, AccessFind AccessTypeEnum) (found bool) {
 	found = false
 
@@ -158,6 +162,7 @@ func HasAccess(ID interface{}, IDType IDTypeEnum, AccessID string, AccessFind Ac
 	return
 }
 
+//UserId using userid
 func ChangePassword(userId string, passwd string) (err error) {
 
 	tUser := new(User)
@@ -212,6 +217,7 @@ func FindUserByEmail(o orm.IModel, email string) error {
 	return e
 }
 
+//username using user loginid
 func Login(username, password string) (sessionid string, err error) {
 
 	tUser := new(User)
@@ -230,12 +236,16 @@ func Login(username, password string) (sessionid string, err error) {
 		return
 	}
 
-	tPass := md5.New()
-	io.WriteString(tPass, password)
+	LoginSuccess := false
 
-	ePassword := fmt.Sprintf("%x", tPass.Sum(nil))
+	switch tUser.LoginType {
+	case LogTypeLdap:
+		LoginSuccess = checkloginldap(username, password, tUser.LoginConf)
+	default:
+		LoginSuccess = checkloginbasic(password, tUser.Password)
+	}
 
-	if ePassword != tUser.Password {
+	if !LoginSuccess {
 		err = errors.New("Username and password is incorrect")
 		return
 	}
@@ -250,6 +260,7 @@ func Login(username, password string) (sessionid string, err error) {
 	if tSession.ID == "" {
 		tSession.ID = toolkit.RandomString(32)
 		tSession.UserID = tUser.ID
+		tSession.LoginID = tUser.LoginID
 		tSession.Created = time.Now().UTC()
 	}
 
@@ -262,6 +273,7 @@ func Login(username, password string) (sessionid string, err error) {
 	return
 }
 
+//Using sessionid
 func Logout(sessionid string) (err error) {
 	tSession := new(Session)
 	err = FindByID(tSession, sessionid)
@@ -380,5 +392,38 @@ func FindActiveSessionByUser(o orm.IModel, userid string) (err error) {
 	if err != nil && strings.Contains(err.Error(), "Not found") {
 		err = nil
 	}
+	return
+}
+
+func checkloginbasic(spassword, upassword string) (cond bool) {
+	cond = false
+
+	tPass := md5.New()
+	io.WriteString(tPass, spassword)
+
+	ePassword := fmt.Sprintf("%x", tPass.Sum(nil))
+
+	if ePassword == upassword {
+		cond = true
+	}
+
+	return
+}
+
+func checkloginldap(username string, password string, loginconf toolkit.M) (cond bool) {
+	cond = false
+
+	l := ldap.NewConnection(toolkit.ToString(loginconf["address"]))
+	err := l.Connect()
+	if err != nil {
+		return
+	}
+	defer l.Close()
+
+	err = l.Bind(username, password)
+	if err == nil {
+		cond = true
+	}
+
 	return
 }

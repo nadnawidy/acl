@@ -7,16 +7,27 @@ import (
 	"github.com/eaciit/toolkit"
 )
 
+type LoginTypeEnum int
+
+const (
+	LogTypeBasic LoginTypeEnum = iota
+	LogTypeLdap
+	//LogTypeGoogle
+	//LogTypeFacebook
+)
+
 type User struct {
 	orm.ModelBase
-	ID       string        `json:"_id",bson:"_id"`
-	LoginID  string        // `json:"LoginID",bson:"LoginID"`
-	FullName string        // `json:"FullName",bson:"FullName"`
-	Email    string        // `json:"Email",bson:"Email"`
-	Password string        // `json:"Password",bson:"Password"`
-	Enable   bool          // `json:"Enable",bson:"Enable"`
-	Groups   []string      // `json:"Groups",bson:"Groups"`
-	Grants   []AccessGrant // `json:"Grants",bson:"Grants"`
+	ID        string        `json:"_id",bson:"_id"`
+	LoginID   string        // `json:"LoginID",bson:"LoginID"`
+	FullName  string        // `json:"FullName",bson:"FullName"`
+	Email     string        // `json:"Email",bson:"Email"`
+	Password  string        // `json:"Password",bson:"Password"`
+	Enable    bool          // `json:"Enable",bson:"Enable"`
+	Groups    []string      // `json:"Groups",bson:"Groups"`
+	Grants    []AccessGrant // `json:"Grants",bson:"Grants"`
+	LoginType LoginTypeEnum
+	LoginConf toolkit.M
 }
 
 func (u *User) TableName() string {

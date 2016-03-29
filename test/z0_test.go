@@ -79,6 +79,23 @@ func TestCreateUser(t *testing.T) {
 	}
 }
 
+func TestCreateUserLdap(t *testing.T) {
+	t.Skip("Skip : Comment this line to do test")
+	initUser := new(acl.User)
+
+	initUser.ID = toolkit.RandomString(32)
+	initUser.LoginID = "Alip Sidik"
+	initUser.FullName = "Alip Sidik"
+	initUser.Email = "alip.sidik@eaciit.com"
+	initUser.LoginType = acl.LogTypeLdap
+	initUser.LoginConf = toolkit.M{}.Set("address", "192.168.0.200:389")
+
+	err := acl.Save(initUser)
+	if err != nil {
+		t.Errorf("Error set initial user to acl: %s \n", err.Error())
+	}
+}
+
 func TestCreateAccess(t *testing.T) {
 	t.Skip("Skip : Comment this line to do test")
 	for i := 0; i < 10; i++ {
@@ -338,10 +355,10 @@ func TestTokens(t *testing.T) {
 }
 
 func TestSession(t *testing.T) {
-	// t.Skip("Skip : Comment this line to do test")
-	acl.SetExpiredDuration(time.Second * 25)
+	t.Skip("Skip : Comment this line to do test")
+	// acl.SetExpiredDuration(time.Second * 25)
 
-	sessionid, err := acl.Login("ACL.LOGINID", "12345")
+	sessionid, err := acl.Login("ACL.LOGINID.0", "12345")
 	if err != nil {
 		t.Errorf("Login error: %s \n", err.Error())
 		t.Skip()
@@ -359,16 +376,38 @@ func TestSession(t *testing.T) {
 
 	<-time.After(time.Second * 30)
 
-	err = acl.Logout(sessionid)
-	if err == nil {
-		t.Errorf("Logout error: %s \n", "must be expired")
-	} else {
-		fmt.Printf("[%v]Session expired : %v \n\n", toolkit.Date2String(time.Now(), "HH:mm:ss"), err.Error())
-	}
+	// err = acl.Logout(sessionid)
+	// if err == nil {
+	// 	t.Errorf("Logout error: %s \n", "must be expired")
+	// } else {
+	// 	fmt.Printf("[%v]Session expired : %v \n\n", toolkit.Date2String(time.Now(), "HH:mm:ss"), err.Error())
+	// }
 
-	tUser, err = acl.FindUserBySessionID(sessionid)
+	// tUser, err = acl.FindUserBySessionID(sessionid)
+	// if err != nil {
+	// 	fmt.Printf("[%v]Session Expired : %s \n", toolkit.Date2String(time.Now(), "HH:mm:ss"), err.Error())
+	// }
+	// fmt.Printf("[%v]User Found : %v \n", toolkit.Date2String(time.Now(), "HH:mm:ss"), tUser)
+}
+
+func TestSessionLoginLdap(t *testing.T) {
+	t.Skip("Skip : Comment this line to do test")
+
+	sessionid, err := acl.Login("Alip Sidik", "Password.1")
 	if err != nil {
-		fmt.Printf("[%v]Session Expired : %s \n", toolkit.Date2String(time.Now(), "HH:mm:ss"), err.Error())
+		t.Errorf("Login error: %s \n", err.Error())
+		t.Skip()
+	}
+	fmt.Printf("[%v]Session ID : %v \n", toolkit.Date2String(time.Now(), "HH:mm:ss"), sessionid)
+
+	<-time.After(time.Second * 5)
+
+	tUser, err := acl.FindUserBySessionID(sessionid)
+	if err != nil {
+		t.Errorf("Find user error: %s \n", err.Error())
+		return
 	}
 	fmt.Printf("[%v]User Found : %v \n", toolkit.Date2String(time.Now(), "HH:mm:ss"), tUser)
+
+	<-time.After(time.Second * 30)
 }

@@ -7,8 +7,9 @@ import (
 
 type Session struct {
 	orm.ModelBase
-	ID      string    `json:"_id",bson:"_id"`
-	UserID  string    // `json:"UserID",bson:"UserID"`
+	ID      string `json:"_id",bson:"_id"`
+	UserID  string // `json:"UserID",bson:"UserID"`
+	LoginID string
 	Created time.Time // `json:"Created",bson:"Created"`
 	Expired time.Time // `json:"Expired",bson:"Expired"`
 }
