@@ -7,16 +7,27 @@ import (
 	"github.com/eaciit/toolkit"
 )
 
+type LoginTypeEnum int
+
+const (
+	LogTypeBasic LoginTypeEnum = iota
+	LogTypeLdap
+	//LogTypeGoogle
+	//LogTypeFacebook
+)
+
 type User struct {
 	orm.ModelBase
-	ID       string        `json:"_id",bson:"_id"`
-	LoginID  string        // `json:"LoginID",bson:"LoginID"`
-	FullName string        // `json:"FullName",bson:"FullName"`
-	Email    string        // `json:"Email",bson:"Email"`
-	Password string        // `json:"Password",bson:"Password"`
-	Enable   bool          // `json:"Enable",bson:"Enable"`
-	Groups   []string      // `json:"Groups",bson:"Groups"`
-	Grants   []AccessGrant // `json:"Grants",bson:"Grants"`
+	ID        string        `json:"_id",bson:"_id"`
+	LoginID   string        // `json:"LoginID",bson:"LoginID"`
+	FullName  string        // `json:"FullName",bson:"FullName"`
+	Email     string        // `json:"Email",bson:"Email"`
+	Password  string        // `json:"Password",bson:"Password"`
+	Enable    bool          // `json:"Enable",bson:"Enable"`
+	Groups    []string      // `json:"Groups",bson:"Groups"`
+	Grants    []AccessGrant // `json:"Grants",bson:"Grants"`
+	LoginType LoginTypeEnum
+	LoginConf toolkit.M
 }
 
 func (u *User) TableName() string {
@@ -33,7 +44,7 @@ func (u *User) Grant(tAccessID string, tAccessEnum ...AccessTypeEnum) {
 		for _, tAE := range tAccessEnum {
 			splittAE := splitgrantvalue(tAE)
 			for _, iSplittAE := range splittAE {
-				if !matchaccess(iSplittAE, u.Grants[i].AccessValue) {
+				if !Matchaccess(iSplittAE, u.Grants[i].AccessValue) {
 					u.Grants[i].AccessValue += iSplittAE
 				}
 			}
@@ -64,7 +75,7 @@ func (u *User) Revoke(tAccessID string, tAccessEnum ...AccessTypeEnum) {
 		for _, tAE := range tAccessEnum {
 			splittAE := splitgrantvalue(tAE)
 			for _, iSplittAE := range splittAE {
-				if matchaccess(iSplittAE, u.Grants[i].AccessValue) {
+				if Matchaccess(iSplittAE, u.Grants[i].AccessValue) {
 					u.Grants[i].AccessValue -= iSplittAE
 				}
 			}
@@ -90,7 +101,7 @@ func (u *User) AddToGroup(tGroupID string) error {
 	}
 
 	for _, tg := range mod.Grants {
-		arrgrantval := splitinttogrant(tg.AccessValue)
+		arrgrantval := Splitinttogrant(tg.AccessValue)
 		u.Grant(tg.AccessID, arrgrantval...)
 	}
 
@@ -109,7 +120,7 @@ func (u *User) RemoveFromGroup(tGroupID string) error {
 	}
 
 	for _, tg := range mod.Grants {
-		arrgrantval := splitinttogrant(tg.AccessValue)
+		arrgrantval := Splitinttogrant(tg.AccessValue)
 		u.Revoke(tg.AccessID, arrgrantval...)
 	}
 

@@ -2,6 +2,7 @@ package acl
 
 import (
 	"fmt"
+
 	"github.com/eaciit/acl"
 	"github.com/eaciit/dbox"
 	_ "github.com/eaciit/dbox/dbc/mongo"
@@ -9,6 +10,7 @@ import (
 	// "os"
 	// "path/filepath"
 	"testing"
+	"time"
 )
 
 // var err error
@@ -60,6 +62,37 @@ func TestCreateUser(t *testing.T) {
 		if err != nil {
 			t.Errorf("Error set initial user to acl: %s \n", err.Error())
 		}
+	}
+
+	for i := 0; i < 3; i++ {
+		iUser := new(acl.User)
+		err := acl.FindUserByLoginID(iUser, fmt.Sprintf("ACL.LOGINID.%v", i))
+		if err != nil {
+			t.Errorf("Error find user by login id: %s \n", err.Error())
+			continue
+		}
+		err = acl.ChangePassword(iUser.ID, "12345")
+		if err != nil {
+			t.Errorf("Error change password : %s \n", err.Error())
+			continue
+		}
+	}
+}
+
+func TestCreateUserLdap(t *testing.T) {
+	t.Skip("Skip : Comment this line to do test")
+	initUser := new(acl.User)
+
+	initUser.ID = toolkit.RandomString(32)
+	initUser.LoginID = "Alip Sidik"
+	initUser.FullName = "Alip Sidik"
+	initUser.Email = "alip.sidik@eaciit.com"
+	initUser.LoginType = acl.LogTypeLdap
+	initUser.LoginConf = toolkit.M{}.Set("address", "192.168.0.200:389")
+
+	err := acl.Save(initUser)
+	if err != nil {
+		t.Errorf("Error set initial user to acl: %s \n", err.Error())
 	}
 }
 
@@ -161,7 +194,7 @@ func TestAddAccesUser(t *testing.T) {
 }
 
 func TestFindGenAcl(t *testing.T) {
-	// t.Skip("Skip : Comment this line to do test")
+	t.Skip("Skip : Comment this line to do test")
 	tAccess := new(acl.Access)
 	tGroup := new(acl.Group)
 	tUser := new(acl.User)
@@ -276,4 +309,105 @@ func TestDeleteInAcl(t *testing.T) {
 			t.Errorf("Error delete user : %s \n", err.Error())
 		}
 	}
+}
+
+func TestTokens(t *testing.T) {
+	t.Skip("Skip : Comment this line to do test")
+	tUser := new(acl.User)
+
+	err := acl.FindUserByLoginID(tUser, "ACL.LOGINID.1")
+	if err != nil {
+		t.Errorf("Error Find User By ID ACL: %s \n", err.Error())
+		return
+	}
+	fmt.Printf("FOUND ID : %v \n\n", tUser.ID)
+
+	err = acl.CreateToken(tUser.ID, "ChangePassword", time.Minute*5)
+	if err != nil {
+		t.Errorf("Create user token found : %s \n", err.Error())
+		return
+	}
+	fmt.Printf("Token created... \n")
+
+	idToken, err := acl.GetToken(tUser.ID, "ChangePassword")
+	if err != nil {
+		t.Errorf("Get token found : %s \n", err.Error())
+		return
+	}
+	fmt.Printf("Token : %v \n\n", idToken)
+
+	tToken := new(acl.Token)
+	err = acl.FindByID(tToken, idToken)
+	if err != nil {
+		t.Errorf("Error Find Group By ID : %s \n", err.Error())
+	}
+
+	<-time.After(time.Second * 10)
+	tToken.Claim()
+	fmt.Printf("Token claimed... \n")
+
+	idToken, err = acl.GetToken(tUser.ID, "ChangePassword")
+	if err != nil {
+		t.Errorf("Get token found : %s \n", err.Error())
+		return
+	}
+	fmt.Printf("Token : %v \n\n", idToken)
+}
+
+func TestSession(t *testing.T) {
+	t.Skip("Skip : Comment this line to do test")
+	// acl.SetExpiredDuration(time.Second * 25)
+
+	sessionid, err := acl.Login("ACL.LOGINID.0", "12345")
+	if err != nil {
+		t.Errorf("Login error: %s \n", err.Error())
+		t.Skip()
+	}
+	fmt.Printf("[%v]Session ID : %v \n", toolkit.Date2String(time.Now(), "HH:mm:ss"), sessionid)
+
+	<-time.After(time.Second * 5)
+
+	tUser, err := acl.FindUserBySessionID(sessionid)
+	if err != nil {
+		t.Errorf("Find user error: %s \n", err.Error())
+		return
+	}
+	fmt.Printf("[%v]User Found : %v \n", toolkit.Date2String(time.Now(), "HH:mm:ss"), tUser)
+
+	<-time.After(time.Second * 30)
+
+	// err = acl.Logout(sessionid)
+	// if err == nil {
+	// 	t.Errorf("Logout error: %s \n", "must be expired")
+	// } else {
+	// 	fmt.Printf("[%v]Session expired : %v \n\n", toolkit.Date2String(time.Now(), "HH:mm:ss"), err.Error())
+	// }
+
+	// tUser, err = acl.FindUserBySessionID(sessionid)
+	// if err != nil {
+	// 	fmt.Printf("[%v]Session Expired : %s \n", toolkit.Date2String(time.Now(), "HH:mm:ss"), err.Error())
+	// }
+	// fmt.Printf("[%v]User Found : %v \n", toolkit.Date2String(time.Now(), "HH:mm:ss"), tUser)
+}
+
+func TestSessionLoginLdap(t *testing.T) {
+	t.Skip("Skip : Comment this line to do test")
+
+	sessionid, err := acl.Login("Alip Sidik", "Password.1")
+	if err != nil {
+		t.Errorf("Login error: %s \n", err.Error())
+		t.Skip()
+	}
+	fmt.Printf("[%v]Session ID : %v \n", toolkit.Date2String(time.Now(), "HH:mm:ss"), sessionid)
+
+	<-time.After(time.Second * 5)
+
+	tUser, err := acl.FindUserBySessionID(sessionid)
+	if err != nil {
+		t.Errorf("Find user error: %s \n", err.Error())
+		return
+	}
+	fmt.Printf("[%v]User Found : %v \n", toolkit.Date2String(time.Now(), "HH:mm:ss"), tUser)
+
+	<-time.After(time.Second * 30)
 }

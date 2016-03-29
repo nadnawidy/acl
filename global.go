@@ -1,12 +1,16 @@
 package acl
 
 import (
+	"crypto/md5"
 	"errors"
 	"fmt"
 	"github.com/eaciit/dbox"
 	_ "github.com/eaciit/dbox/dbc/mongo"
 	"github.com/eaciit/orm/v1"
 	"github.com/eaciit/toolkit"
+	"github.com/rbns/ldap"
+	"io"
+	"strings"
 	"time"
 )
 
@@ -42,6 +46,8 @@ func ctx() *orm.DataContext {
 }
 
 func SetDb(conn dbox.IConnection) error {
+	_aclctxErr = nil
+
 	e := conn.Connect()
 	if e != nil {
 		_aclctxErr = errors.New("Acl.SetDB: Test Connect: " + e.Error())
@@ -57,6 +63,11 @@ func SetExpiredDuration(td time.Duration) {
 }
 
 func Save(o orm.IModel) error {
+
+	if toolkit.TypeName(o) == "*acl.User" {
+		o.(*User).Password = getlastpassword(o.(*User).ID)
+	}
+
 	e := ctx().Save(o)
 	if e != nil {
 		return errors.New("Acl.Save: " + e.Error())
@@ -103,6 +114,7 @@ func Delete(o orm.IModel) error {
 	return e
 }
 
+// ID for IDTypeUser
 func HasAccess(ID interface{}, IDType IDTypeEnum, AccessID string, AccessFind AccessTypeEnum) (found bool) {
 	found = false
 
@@ -123,9 +135,19 @@ func HasAccess(ID interface{}, IDType IDTypeEnum, AccessID string, AccessFind Ac
 		}
 		tGrants = tGroup.Grants
 	case IDTypeSession:
-		// tSession := new(tSession)
-		// err := FindByID(tSession, ID)
-		// tGrants = tSession.Grants
+		tSession := new(Session)
+		err := FindByID(tSession, ID)
+		if tSession.Expired.Before(time.Now().UTC()) {
+			return
+		}
+
+		tUser := new(User)
+		err = FindByID(tUser, tSession.UserID)
+		if err != nil {
+			return
+		}
+
+		tGrants = tUser.Grants
 	}
 
 	if len(tGrants) == 0 {
@@ -134,7 +156,34 @@ func HasAccess(ID interface{}, IDType IDTypeEnum, AccessID string, AccessFind Ac
 
 	fn, in := getgrantindex(tGrants, AccessID)
 	if fn {
-		found = matchaccess(int(AccessFind), tGrants[in].AccessValue)
+		found = Matchaccess(int(AccessFind), tGrants[in].AccessValue)
+	}
+
+	return
+}
+
+//UserId using userid
+func ChangePassword(userId string, passwd string) (err error) {
+
+	tUser := new(User)
+	err = FindByID(tUser, userId)
+	if err != nil {
+		err = errors.New(fmt.Sprintf("Found Error : ", err.Error()))
+		return
+	}
+
+	if tUser.ID == "" {
+		err = errors.New("User not found")
+	}
+
+	tPass := md5.New()
+	io.WriteString(tPass, passwd)
+
+	tUser.Password = fmt.Sprintf("%x", tPass.Sum(nil))
+
+	err = ctx().Save(tUser)
+	if err != nil {
+		err = errors.New("Acl.ChangePassword: " + err.Error())
 	}
 
 	return
@@ -168,23 +217,53 @@ func FindUserByEmail(o orm.IModel, email string) error {
 	return e
 }
 
+//username using user loginid
 func Login(username, password string) (sessionid string, err error) {
 
 	tUser := new(User)
 	err = FindUserByLoginID(tUser, username)
 	if err != nil {
+		if strings.Contains(err.Error(), "Not found") {
+			err = errors.New("Username not found")
+			return
+		}
+		err = errors.New(fmt.Sprintf("Found error : %v", err.Error()))
 		return
 	}
 
-	if password != tUser.Password {
-		err = errors.New("Username and password is not correct")
+	if tUser.ID == "" {
+		err = errors.New("Username not found")
+		return
+	}
+
+	LoginSuccess := false
+
+	switch tUser.LoginType {
+	case LogTypeLdap:
+		LoginSuccess = checkloginldap(username, password, tUser.LoginConf)
+	default:
+		LoginSuccess = checkloginbasic(password, tUser.Password)
+	}
+
+	if !LoginSuccess {
+		err = errors.New("Username and password is incorrect")
 		return
 	}
 
 	tSession := new(Session)
-	tSession.ID = toolkit.RandomString(32)
-	tSession.UserID = username
-	tSession.Created = time.Now().UTC()
+	err = FindActiveSessionByUser(tSession, tUser.ID)
+	if err != nil {
+		err = errors.New(fmt.Sprintf("Get previous session, found : %v", err.Error()))
+		return
+	}
+
+	if tSession.ID == "" {
+		tSession.ID = toolkit.RandomString(32)
+		tSession.UserID = tUser.ID
+		tSession.LoginID = tUser.LoginID
+		tSession.Created = time.Now().UTC()
+	}
+
 	tSession.Expired = time.Now().UTC().Add(_expiredduration)
 
 	err = Save(tSession)
@@ -194,6 +273,7 @@ func Login(username, password string) (sessionid string, err error) {
 	return
 }
 
+//Using sessionid
 func Logout(sessionid string) (err error) {
 	tSession := new(Session)
 	err = FindByID(tSession, sessionid)
@@ -207,6 +287,11 @@ func Logout(sessionid string) (err error) {
 		return
 	}
 
+	if time.Now().UTC().After(tSession.Expired) {
+		err = errors.New("Session id is expired")
+		return
+	}
+
 	tSession.Expired = time.Now().UTC()
 	err = Save(tSession)
 	if err != nil {
@@ -216,12 +301,12 @@ func Logout(sessionid string) (err error) {
 	return
 }
 
-func CreateToken(UserID, TokenPupose string, Validity time.Time) (err error) {
+func CreateToken(UserID, TokenPupose string, Validity time.Duration) (err error) {
 	tToken := new(Token)
 	tToken.ID = toolkit.RandomString(32)
 	tToken.UserID = UserID
 	tToken.Created = time.Now().UTC()
-	tToken.Expired = Validity
+	tToken.Expired = time.Now().UTC().Add(Validity)
 	tToken.Purpose = TokenPupose
 
 	err = Save(tToken)
@@ -250,8 +335,16 @@ func GetToken(UserID, TokenPurpose string) (tokenid string, err error) {
 	if err == nil {
 		if time.Now().UTC().After(tToken.Expired) {
 			err = errors.New("Token has been expired")
+			tToken = new(Token)
 			return
 		}
+
+		if !tToken.Claimed.IsZero() {
+			err = errors.New("Token has been claimed")
+			tToken = new(Token)
+			return
+		}
+
 		tokenid = tToken.ID
 	}
 
@@ -265,9 +358,72 @@ func FindUserBySessionID(sessionid string) (userid string, err error) {
 		return
 	}
 
+	if tSession.Expired.Before(time.Now().UTC()) {
+		err = errors.New(fmt.Sprintf("Session has been expired"))
+		return
+	}
+
 	tSession.Expired = time.Now().UTC().Add(_expiredduration)
 	err = Save(tSession)
-	userid = tSession.UserID
+	if err != nil {
+		err = errors.New(fmt.Sprintf("Update session error found : %v", err.Error()))
+	}
+
+	tUser := new(User)
+	err = FindByID(tUser, tSession.UserID)
+	if err != nil {
+		err = errors.New(fmt.Sprintf("Find user by id found : %v", err.Error()))
+	}
+	userid = tUser.ID
+
+	return
+}
+
+func FindActiveSessionByUser(o orm.IModel, userid string) (err error) {
+	filter := dbox.And(dbox.Eq("userid", userid), dbox.Gte("expired", time.Now().UTC()))
+
+	c, err := Find(o, filter, nil)
+	if err != nil {
+		return errors.New("Acl.FindActiveSessionByUser: " + err.Error())
+	}
+	defer c.Close()
+
+	err = c.Fetch(o, 1, false)
+	if err != nil && strings.Contains(err.Error(), "Not found") {
+		err = nil
+	}
+	return
+}
+
+func checkloginbasic(spassword, upassword string) (cond bool) {
+	cond = false
+
+	tPass := md5.New()
+	io.WriteString(tPass, spassword)
+
+	ePassword := fmt.Sprintf("%x", tPass.Sum(nil))
+
+	if ePassword == upassword {
+		cond = true
+	}
+
+	return
+}
+
+func checkloginldap(username string, password string, loginconf toolkit.M) (cond bool) {
+	cond = false
+
+	l := ldap.NewConnection(toolkit.ToString(loginconf["address"]))
+	err := l.Connect()
+	if err != nil {
+		return
+	}
+	defer l.Close()
+
+	err = l.Bind(username, password)
+	if err == nil {
+		cond = true
+	}
 
 	return
 }
